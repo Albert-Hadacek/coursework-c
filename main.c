@@ -6,23 +6,19 @@
  * MAIN FEATURES OF THE GAME
  * 
  * - Local Multiplayer of 2 players
- * - Custom Board Size (4-10)
- * - Singleplayer vs. optimized AI using the Minimax Algorithm
- * - Option to rewind in the game 
- * - Option to record a game into a text file
- * - Option to go through the saved gameplays
+ * - Custom Board Size (7-14)
  * 
- *  Enjoy!!!
+ * 
  */
 
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 struct gameOptions
 {
-    char mode;
-    char recordGame;
     int rows;
     int columns;
 };
@@ -31,135 +27,223 @@ struct move
 {
     int x;
     int y;
-    int player;
 };
 
 struct game
 {
     int currentPlayer;
-    // movesHistory
-    // board
+    int **board;
 };
 
 // Function declarations
-char verifyAndSetStrInput(char conditions[], char message[]);
-int verifyAndSetIntInput(char message[]);
+int verifyAndSetIntInput(char message[], int min, int max);
 void configureGame(struct gameOptions *go);
 void displaySetup(struct gameOptions go);
-char determineAction();
-char *generateFileName(size_t length);
+void prepareBoard(struct gameOptions go, struct game *g);
+void printBoard(struct gameOptions go, struct game g);
+void makeMove(struct gameOptions go, struct game *g, struct move *m);
+bool determineWinner(struct gameOptions go, struct game g, struct move m);
+void clear_stream(FILE *in);
 
 int main(void)
 {
 
     struct gameOptions go;
     struct game g;
+    struct move m;
 
-    printf("%s", generateFileName(5));
-
-    // Determining if the player wants to play or review a previous game
-    char a = determineAction();
-
-    if (a == 'P')
+    // Setting up the configuration of the game
+    configureGame(&go);
+    // Displaying the configuration
+    displaySetup(go);
+    // Preparing the initial board based on the size provided by the user
+    prepareBoard(go, &g);
+    // Setting up the flag for the game
+    bool isOn = true;
+    while (isOn)
     {
-        // Setting up the configuration of the game
-        configureGame(&go);
-        // Displaying the configuration
-        displaySetup(go);
-
-        // Setting up the flag for the game
-        int isOn = 1;
-        while (isOn)
+        // Printing the board before every move
+        printBoard(go, g);
+        // Prompt the player to make a move
+        makeMove(go, &g, &m);
+        // check if someone has won
+        if (determineWinner(go, g, m))
         {
-            // Singleplayer Mode
-            if (go.mode == 'S')
-            {
-            }
-
-            // Multiplayer Mode
-            if (go.mode == 'M')
-            {
-            }
+            printf("Player %d has won! \n \n", g.currentPlayer);
+            printBoard(go, g);
+            isOn = false;
         }
-
-        // Determining the winner
-    }
-
-    if (a == 'R')
-    {
-        // Getting content from a file specified by user
-
-        // Displaying the replay of the specified game
+        // Change player
+        g.currentPlayer = g.currentPlayer == 1 ? 2 : 1;
     }
 
     return 0;
 }
 
-char determineAction()
-{
-    printf(" \n \n *** WELCOME TO THE CONNECT 4 MASTERS GAME *** \n \n");
-    return verifyAndSetStrInput((char[]){'P', 'R'}, "Press P to play or press R to review one of your previous games");
-}
-
 void configureGame(struct gameOptions *go)
 {
-    go->mode = verifyAndSetStrInput((char[]){'M', 'S'}, "Press M for local multiplayer game or S for singleplayer game against our daunting AI");
-    go->recordGame = verifyAndSetStrInput((char[]){'Y', 'N'}, "Press Y if you want to record the game, otherwise press N");
-    go->columns = verifyAndSetIntInput("Define the number of columns (4 - 10)");
-    go->rows = verifyAndSetIntInput("Define the number of rows (1-10)");
+    printf(" \n \n *** WELCOME TO THE CONNECT 4 MASTERS GAME *** \n \n");
+    go->rows = verifyAndSetIntInput("Define the number of rows and columns", 7, 14);
+    go->columns = go->rows;
 }
 
 void displaySetup(struct gameOptions go)
 {
     printf("============== \n");
-    printf("This is your game configuration \n");
-    printf("Game mode: %s \n", go.mode == "M" ? "Multiplayer" : "Singleplayer");
-    printf("Your game %s \n", go.recordGame == "Y" ? " will be recorded" : " will not be recorded");
     printf("Size of your board will be %d x %d \n", go.rows, go.columns);
-    printf("============== \n");
+    printf("============== \n \n");
 }
 
-char verifyAndSetStrInput(char conditions[], char message[])
+void printBoard(struct gameOptions go, struct game g)
 {
-    char input;
-    while ((input != conditions[0]) && (input != conditions[1]))
+    for (int i = 0; i < go.rows; i++)
     {
-        printf("%s \n", message);
-        scanf(" %c", &input);
-        while (getchar() != '\n')
+        for (int j = 0; j < go.columns; j++)
         {
-        };
+            printf("%d ", g.board[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\n \n");
+}
+
+void prepareBoard(struct gameOptions go, struct game *g)
+{
+    g->board = (int **)malloc(go.rows * sizeof(int *));
+    g->currentPlayer = 1;
+    for (int i = 0; i < go.rows; i++)
+    {
+        g->board[i] = (int *)malloc(go.columns * sizeof(int));
     }
 
-    return input;
+    for (int i = 0; i < go.rows; i++)
+    {
+        for (int j = 0; j < go.columns; j++)
+        {
+            g->board[i][j] = 0;
+        }
+    }
 }
 
-int verifyAndSetIntInput(char message[])
+void makeMove(struct gameOptions go, struct game *g, struct move *m)
+{
+    m->x = 0;
+    m->y = 0;
+    printf("Player's %d move. \n \n", g->currentPlayer);
+    bool isFree = true;
+
+    while (isFree)
+    {
+        m->x = verifyAndSetIntInput("Pick X coordinate", 1, go.rows) - 1;
+        m->y = verifyAndSetIntInput("Pick Y coordinate", 1, go.columns) - 1;
+        printf(" \n \n");
+
+        if (g->board[m->x][m->y] == 0)
+        {
+            isFree = false;
+            g->board[m->x][m->y] = g->currentPlayer;
+        }
+        else
+        {
+            printf("That space is already taken! \n \n");
+        }
+    }
+}
+
+// https://www.daniweb.com/programming/software-development/threads/386198/only-accept-integer-input-with-scanf
+void clear_stream(FILE *in)
+{
+    int ch;
+
+    clearerr(in);
+
+    do
+    {
+        ch = getc(in);
+    } while (ch != '\n' && ch != EOF);
+
+    clearerr(in);
+}
+
+int verifyAndSetIntInput(char message[], int min, int max)
 {
     int input = 0;
-    while (input > 10 || input < 4)
-    {
 
-        printf("%s \n", message);
-        scanf(" %d", &input);
+    printf("%s (%d - %d) \n", message, min, max);
+
+    // https://www.daniweb.com/programming/software-development/threads/386198/only-accept-integer-input-with-scanf
+    fflush(stdout);
+    while (scanf("%d", &input) != 1 || max < input || input < min)
+    {
+        clear_stream(stdin);
+        printf("Invalid value. Please try again. \n ");
+        printf("%s (%d - %d) \n", message, min, max);
+        fflush(stdout);
     }
 
     return input;
 }
 
-char *generateFileName(size_t length)
+bool determineWinner(struct gameOptions go, struct game g, struct move m)
 {
-    const char charOptions[] = "abcdefghijklmnopqrstuvwxyz123456789";
-    char *randomString;
-    randomString = malloc(length + 1);
-
-    for (int i = 0; i < length; i++)
+    // Checking rows
+    int count = 0;
+    for (int i = 0; i < go.columns; i++)
     {
-        int idx = rand() % (int)(sizeof(charOptions) - 1);
-        randomString[i] = charOptions[idx];
+        if (g.board[m.x][i] == g.currentPlayer)
+        {
+            count++;
+        }
+        else
+        {
+            count = 0;
+        }
+
+        if (count >= 4)
+        {
+            return true;
+        }
+    }
+    // Checking columns
+    count = 0;
+    for (int i = 0; i < go.rows; i++)
+    {
+        if (g.board[i][m.y] == g.currentPlayer)
+        {
+            count++;
+        }
+        else
+        {
+            count = 0;
+        }
+
+        if (count >= 4)
+        {
+            return true;
+        }
+    }
+    // Checking diagonals L -> R
+    for (int i = 3; i < go.rows; i++)
+    {
+        for (int j = 3; j < go.columns - 3; j++)
+        {
+            if (g.board[i][j] == g.currentPlayer && g.board[i - 1][j + 1] == g.currentPlayer && g.board[i - 2][j + 2] == g.currentPlayer && g.board[i - 3][j + 3] == g.currentPlayer)
+            {
+                return true;
+            }
+        }
     }
 
-    randomString[length] = '\0';
-
-    return randomString;
+    //Checking diagonals R -> L
+    for (int i = 3; i < go.rows; i++)
+    {
+        for (int j = 3; j < go.columns; j++)
+        {
+            if (g.board[i][j] == g.currentPlayer && g.board[i - 1][j - 1] == g.currentPlayer && g.board[i - 2][j - 2] == g.currentPlayer && g.board[i - 3][j - 3] == g.currentPlayer)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
 }
